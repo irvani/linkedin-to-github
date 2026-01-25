@@ -33,7 +33,7 @@ dev = [
 ]
 
 [project.scripts]
-ltg = "linkedin_to_github.cli:main"
+ltg = "linkedin_to_github.cli:app"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

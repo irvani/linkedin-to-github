@@ -3,11 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from linkedin_to_github.core import (
-    parse_linkedin_connections,
-    read_worklist_usernames,
-    write_links_html,
-    write_users_txt,
-    write_worklist_csv,
+    parse_linkedin_export,
+    read_following_list,
+    write_dashboard,
+    write_worklist,
 )
 
 
@@ -26,14 +25,14 @@ def test_parse_and_outputs(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    items = parse_linkedin_connections(connections)
+    items = parse_linkedin_export(connections)
     assert len(items) == 2
     assert items[0].name == "Ada Lovelace"
 
     out_csv = tmp_path / "github_lookup_worklist.csv"
     out_html = tmp_path / "github_lookup_links.html"
-    write_worklist_csv(items, out_csv)
-    write_links_html(items, out_html)
+    write_worklist(items, out_csv)
+    write_dashboard(items, out_html)
 
     assert out_csv.exists()
     assert out_html.exists()
@@ -46,7 +45,8 @@ def test_parse_and_outputs(tmp_path: Path) -> None:
     assert "Ada Lovelace" in html_text
 
 
-def test_users_txt_from_worklist(tmp_path: Path) -> None:
+def test_read_following_list(tmp_path: Path) -> None:
+    """Test extracting GitHub usernames from worklist CSV."""
     worklist = tmp_path / "github_lookup_worklist.csv"
     worklist.write_text(
         "\n".join(
@@ -60,9 +60,6 @@ def test_users_txt_from_worklist(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    usernames = read_worklist_usernames(worklist)
+    usernames = read_following_list(worklist)
+    # Should deduplicate and normalize: "octocat" appears twice but returned once
     assert usernames == ["octocat", "hubot"]
-
-    out_users = tmp_path / "users.txt"
-    write_users_txt(usernames, out_users)
-    assert out_users.read_text(encoding="utf-8").splitlines() == ["octocat", "hubot"]

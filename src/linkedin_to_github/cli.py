@@ -1,14 +1,11 @@
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 from .core import (
     DEFAULT_HTML,
-    DEFAULT_USERS_TXT,
     DEFAULT_WORKLIST,
     follow_on_github,
     parse_linkedin_export,
@@ -28,11 +25,19 @@ console = Console()
 
 @app.command()
 def init(
-    connections: Path = typer.Option(..., "--connections", "-c", help="LinkedIn Connections.csv source"),
-    out: Path = typer.Option(".", "--out", "-o", help="Target output directory"),
-    worklist: str = typer.Option(DEFAULT_WORKLIST, help="CSV worklist filename"),
-    dashboard: str = typer.Option(DEFAULT_HTML, help="HTML dashboard filename"),
-):
+    connections: Path = typer.Option(
+        ..., "--connections", "-c", help="LinkedIn Connections.csv export"
+    ),
+    out: Path = typer.Option(
+        ".", "--out", "-o", help="Target output directory"
+    ),
+    worklist: str = typer.Option(
+        DEFAULT_WORKLIST, help="CSV worklist filename"
+    ),
+    dashboard: str = typer.Option(
+        DEFAULT_HTML, help="HTML dashboard filename"
+    ),
+) -> None:
     """
     Initialize a new search project from a LinkedIn export.
     """
@@ -44,18 +49,28 @@ def init(
         write_worklist(items, csv_path)
         write_dashboard(items, html_path)
 
-    console.print(f"[bold green]✔[/] Project initialized.")
+    console.print("[bold green]✔[/] Project initialized.")
     console.print(f"  • Worklist: [cyan]{csv_path}[/]")
     console.print(f"  • Dashboard: [cyan]{html_path}[/]")
 
 @app.command()
 def search(
-    connections: Path = typer.Option(..., "--connections", "-c", help="LinkedIn Connections.csv source"),
-    out: Path = typer.Option(".", "--out", "-o", help="Target output directory"),
-    worklist: str = typer.Option(DEFAULT_WORKLIST, help="CSV worklist filename"),
-    token: Optional[str] = typer.Option(None, help="Optional GitHub PAT"),
-    overwrite: bool = typer.Option(False, help="Overwrite manual entries in worklist"),
-):
+    connections: Path = typer.Option(
+        ..., "--connections", "-c", help="LinkedIn Connections.csv export"
+    ),
+    out: Path = typer.Option(
+        ".", "--out", "-o", help="Target output directory"
+    ),
+    worklist: str = typer.Option(
+        DEFAULT_WORKLIST, help="CSV worklist filename"
+    ),
+    token: str | None = typer.Option(
+        None, help="Optional GitHub Personal Access Token"
+    ),
+    overwrite: bool = typer.Option(
+        False, help="Overwrite manual entries in worklist"
+    ),
+) -> None:
     """
     Automate GitHub discovery by searching the GitHub API for matches.
     """
@@ -80,13 +95,20 @@ def search(
         console.print("\n", table)
     
     total = sum(1 for _, u, _ in suggestions if u)
-    console.print(f"\n[green]Done.[/] Found [bold]{total}[/] potential matches across [bold]{len(items)}[/] connections.")
+    console.print(
+        f"\n[green]Done.[/] Found [bold]{total}[/] potential matches "
+        f"across [bold]{len(items)}[/] connections."
+    )
 
 @app.command()
 def sync(
-    worklist: Path = typer.Option(..., "--worklist", "-w", help="Enriched CSV worklist"),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Confirm execution"),
-):
+    worklist: Path = typer.Option(
+        ..., "--worklist", "-w", help="Enriched CSV worklist"
+    ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Skip confirmation prompt"
+    ),
+) -> None:
     """
     Follow identified users on GitHub using the 'gh' CLI. 
     """
@@ -101,15 +123,12 @@ def sync(
         for u in usernames[:5]:
             console.print(f"  - @{u}")
         if len(usernames) > 5:
-            console.print(f"  ... and {len(usernames)-5} others.")
-        console.print(f"\nRun with [bold cyan]--yes[/] to confirm.")
+            console.print(f"  ... and {len(usernames) - 5} others.")
+        console.print("[cyan]Run with --yes to confirm.[/]")
     else:
         with console.status("Syncing follows..."):
             attempted = follow_on_github(usernames, dry_run=False)
         console.print(f"[green]✔[/] Followed {len(attempted)} users on GitHub.")
 
-def main():
-    app()
-
 if __name__ == "__main__":
-    main()
+    app()

@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkedIn-to-GitHub CSV Uploader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+
+        body.dark-mode .container {
+            background: #0f3460;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode .header {
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+        }
+
+        body.dark-mode th, body.dark-mode td {
+            border-color: #333;
+            color: #e0e0e0;
+        }
+
+        body.dark-mode table {
+            background: #1a2332;
+        }
+
+        body.dark-mode thead {
+            background: #2a3f5f;
+        }
+
+        body.dark-mode input[type="text"], body.dark-mode .search-box {
+            background: #1a2332;
+            color: #e0e0e0;
+            border-color: #444;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-content {
+            flex: 1;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        .content {
+            padding: 25px 30px;
+        }
+
+        .upload-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            background: #f8f9ff;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-section.dragging {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-section input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .upload-section h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .upload-section p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .file-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 6px;
+            color: #2e7d32;
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .results {
+            display: none;
+            margin-top: 40px;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .worklist {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead {
+            background: #f5f5f5;
+            border-bottom: 2px solid #ddd;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .name-cell {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .company-cell {
+            color: #666;
+        }
+
+        .position-cell {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .links-cell {
+            display: flex;
+            gap: 5px;
+        }
+
+        .link-btn {
+            padding: 4px 8px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            color: #667eea;
+        }
+
+        .link-btn:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .dashboard {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .person-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .person-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .person-card h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .person-card .company {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+
+        .person-card .position {
+            color: #999;
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+
+        .person-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .person-link {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            text-decoration: none;
+            color: #667eea;
+            transition: all 0.2s;
+        }
+
+        .person-link:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        .error {
+            color: #d32f2f;
+            padding: 15px;
+            background: #ffebee;
+            border-radius: 6px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .download-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .cli-instructions {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 15px;
+            border: 1px solid #333;
+        }
+
+        .cli-section {
+            margin-bottom: 12px;
+        }
+
+        .cli-title {
+            color: #00ccff;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .cli-code {
+            background: #000;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 4px 0;
+            display: block;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border-left: 3px solid #00ff00;
+        }
+
+        .cli-comment {
+            color: #888;
+            font-style: italic;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+
+        .filter-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .filter-checkbox input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        .filter-info {
+            font-size: 12px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .sort-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .sort-controls label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .sort-select {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .progress-section {
+            padding: 12px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        .progress-section.show {
+            display: block;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #1976d2;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-researched {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-followed {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .status-pending {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .batch-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 15px;
+            background: #f0f2ff;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .batch-info {
+            flex: 1;
+            min-width: 150px;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .checkbox-col {
+            width: 40px;
+            text-align: center;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .follow-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .follow-btn:hover:not(:disabled) {
+            background: #764ba2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .follow-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+            color: #666;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .modal-body p {
+            margin-bottom: 10px;
+        }
+
+        .user-list {
+            list-style: none;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+
+        .user-list li {
+            padding: 5px 0;
+            color: #667eea;
+            font-weight: 500;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #764ba2;
+        }
+
+        .modal-btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-message {
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .status-info {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 30px 20px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <h1>🔗 LinkedIn-to-GitHub</h1>
+                <p>Upload your LinkedIn connections CSV to discover GitHub profiles</p>
+                <p style="font-size: 11px; opacity: 0.7; margin-top: 8px;">⚠️ Unofficial LinkedIn-to-GitHub Connector - Not affiliated with LinkedIn or GitHub</p>
+            </div>
+            <div class="header-controls">
+                <button class="icon-btn" id="helpBtn" title="Keyboard shortcuts">⌨️</button>
+                <button class="icon-btn" id="darkModeBtn" title="Dark mode">🌙</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-icon">📤</div>
+                <h2>Upload Your LinkedIn Connections</h2>
+                <p>Drag and drop your Connections.csv file here or click to select</p>
+                <button class="btn btn-primary">Choose File</button>
+                <input type="file" id="csvFile" accept=".csv" />
+                <div class="file-info" id="fileInfo"></div>
+                <div class="error" id="errorMsg"></div>
+            </div>
+
+            <div class="results" id="results">
+                <div class="stats" id="stats"></div>
+
+                <div class="progress-section" id="progressSection">
+                    <div class="progress-text">
+                        Progress: <span id="progressCount">0</span>/<span id="progressTotal">0</span> reviewed (<span id="progressPercent">0</span>%)
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="progressFill"></div>
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab active" data-tab="dashboard">Dashboard</button>
+                    <button class="tab" data-tab="worklist">Worklist</button>
+                </div>
+
+                <div id="dashboard" class="tab-content active">
+                    <input type="text" class="search-box" id="searchBox" placeholder="Search by name or company...">
+                    <div id="dashboardContent" class="dashboard"></div>
+                </div>
+
+                <div id="worklist" class="tab-content">
+                    <div class="filter-controls">
+                        <label class="filter-checkbox">
+                            <input type="checkbox" id="emailFilterCheckbox">
+                            Show only contacts with email addresses
+                        </label>
+                        <span class="filter-info" id="filterInfo"></span>
+                        <div class="sort-controls" style="margin-left: auto;">
+                            <label>Sort by:</label>
+                            <select class="sort-select" id="sortSelect">
+                                <option value="name">Name (A-Z)</option>
+                                <option value="company">Company</option>
+                                <option value="email">Email Status</option>
+                                <option value="status">Status</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="batch-controls" id="batchControls" style="display: none;">
+                        <div class="batch-info">
+                            <span id="selectedCount">0</span> selected
+                        </div>
+                        <button class="follow-btn" id="followBtn" disabled>🐙 Follow Selected on GitHub</button>
+                        <button class="btn btn-primary" id="clearSelectionBtn">Clear</button>
+                    </div>
+                    <div class="worklist">
+                        <table id="worklistTable">
+                            <thead>
+                                <tr>
+                                    <th class="checkbox-col"><input type="checkbox" id="selectAllCheckbox"></th>
+                                    <th>Name</th>
+                                    <th>Company</th>
+                                    <th>Position</th>
+                                    <th>Email</th>
+                                    <th>GitHub Username</th>
+                                    <th>Status</th>
+                                    <th>Notes</th>
+                                    <th>Links</th>
+                                </tr>
+                            </thead>
+                            <tbody id="worklistBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="download-section">
+                    <button class="btn btn-primary" id="downloadCsv">📥 Download Worklist CSV</button>
+                    <button class="btn btn-primary" id="startOver">🔄 Start Over</button>
+                </div>
+
+                <div class="cli-instructions">
+                    <div class="cli-section">
+                        <div class="cli-title">⚙️ GitHub CLI Setup (One-time)</div>
+                        <div class="cli-comment"># 1. Install GitHub CLI</div>
+                        <div class="cli-code">brew install gh  # macOS\nchoco install gh  # Windows\nsudo apt install gh  # Linux</div>
+                        <div class="cli-comment"># 2. Authenticate with GitHub</div>
+                        <div class="cli-code">gh auth login</div>
+                    </div>
+                    <div class="cli-section">
+                        <div class="cli-title">🚀 How to Follow Bulk Users</div>
+                        <div class="cli-code">gh follow @username1\ngh follow @username2\ngh follow @username3</div>
+                        <div class="cli-comment"># Or in a loop (bash)</div>
+                        <div class="cli-code">for user in username1 username2 username3; do gh follow @$user; done</div>
+                    </div>
+                    <div class="cli-section">
+                        <div class="cli-title">💡 Tips</div>
+                        <div class="cli-comment"># Verify you're logged in</div>
+                        <div class="cli-code">gh auth status</div>
+                        <div class="cli-comment"># List your followers</div>
+                        <div class="cli-code">gh api /user/followers --jq '.[] | .login'</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Follow Confirmation Modal -->
+    <div class="modal" id="followModal">
+        <div class="modal-content">
+            <div class="modal-header">🐙 Follow on GitHub</div>
+            <div class="modal-body">
+                <p><strong>You're about to follow <span id="modalCount">0</span> users on GitHub:</strong></p>
+                <ul class="user-list" id="userListModal"></ul>
+                <div class="status-info">
+                    💡 <strong>Note:</strong> GitHub CLI must be installed and authenticated.
+                    <a href="https://cli.github.com/" target="_blank" style="color: #1976d2;">Get GitHub CLI</a>
+                </div>
+                <div id="followProgress"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" id="modalCancel">Cancel</button>
+                <button class="modal-btn modal-btn-primary" id="modalConfirm">Confirm Follow</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div class="modal" id="helpModal">
+        <div class="modal-content">
+            <div class="modal-header">⌨️ Keyboard Shortcuts</div>
+            <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: 600; color: #667eea;">Ctrl/Cmd + A</td>
+                        <td style="padding: 10px;">Select all visible contacts</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: 600; color: #667eea;">Ctrl/Cmd + D</td>
+                        <td style="padding: 10px;">Toggle dark mode</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: 600; color: #667eea;">Ctrl/Cmd + E</td>
+                        <td style="padding: 10px;">Toggle email filter</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: 600; color: #667eea;">Ctrl/Cmd + F</td>
+                        <td style="padding: 10px;">Focus search box</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 10px; font-weight: 600; color: #667eea;">Ctrl/Cmd + S</td>
+                        <td style="padding: 10px;">Save progress to browser</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; font-weight: 600; color: #667eea;">?</td>
+                        <td style="padding: 10px;">Show this help menu</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-primary" id="helpClose">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = [];
+        let currentData = [];
+        let selectedUsers = new Set();
+        let userNotes = {};
+        let userStatus = {};
+
+        const uploadSection = document.getElementById('uploadSection');
+        const csvFile = document.getElementById('csvFile');
+        const fileInfo = document.getElementById('fileInfo');
+        const errorMsg = document.getElementById('errorMsg');
+        const results = document.getElementById('results');
+        const uploadBtn = uploadSection.querySelector('button');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const searchBox = document.getElementById('searchBox');
+        const downloadCsvBtn = document.getElementById('downloadCsv');
+        const startOverBtn = document.getElementById('startOver');
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const followBtn = document.getElementById('followBtn');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+        const batchControls = document.getElementById('batchControls');
+        const followModal = document.getElementById('followModal');
+        const modalCancel = document.getElementById('modalCancel');
+        const modalConfirm = document.getElementById('modalConfirm');
+        const darkModeBtn = document.getElementById('darkModeBtn');
+        const helpBtn = document.getElementById('helpBtn');
+        const helpModal = document.getElementById('helpModal');
+        const helpClose = document.getElementById('helpClose');
+        const sortSelect = document.getElementById('sortSelect');
+        const progressSection = document.getElementById('progressSection');
+
+        // Event listeners
+        uploadBtn.addEventListener('click', () => csvFile.click());
+        csvFile.addEventListener('change', handleFileSelect);
+
+        // Dark mode toggle
+        darkModeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+        });
+
+        // Load dark mode preference
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+        }
+
+        // Help modal
+        helpBtn.addEventListener('click', () => helpModal.classList.add('show'));
+        helpClose.addEventListener('click', () => helpModal.classList.remove('show'));
+
+        // Sort by option
+        sortSelect.addEventListener('change', renderWorklist);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+            const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+            if (modifier && e.key === 'a') {
+                e.preventDefault();
+                selectAllCheckbox.checked = true;
+                selectAllCheckbox.dispatchEvent(new Event('change'));
+            }
+            if (modifier && e.key === 'd') {
+                e.preventDefault();
+                darkModeBtn.click();
+            }
+            if (modifier && e.key === 'e') {
+                e.preventDefault();
+                const emailFilter = document.getElementById('emailFilterCheckbox');
+                emailFilter.checked = !emailFilter.checked;
+                emailFilter.dispatchEvent(new Event('change'));
+            }
+            if (modifier && e.key === 'f') {
+                e.preventDefault();
+                searchBox.focus();
+            }
+            if (modifier && e.key === 's') {
+                e.preventDefault();
+                saveProgress();
+                showNotification('Progress saved to browser');
+            }
+            if (e.key === '?') {
+                e.preventDefault();
+                helpBtn.click();
+            }
+        });
+
+        function saveProgress() {
+            localStorage.setItem('linkedinGHProgress', JSON.stringify({
+                data,
+                userNotes,
+                userStatus,
+                selectedUsers: Array.from(selectedUsers)
+            }));
+        }
+
+        function showNotification(msg) {
+            const div = document.createElement('div');
+            div.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#667eea;color:white;padding:12px 20px;border-radius:6px;z-index:10000;';
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 2000);
+        }
+
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragging');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragging');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragging');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                csvFile.files = files;
+                handleFileSelect({ target: { files } });
+            }
+        });
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tabName).classList.add('active');
+            });
+        });
+
+        searchBox.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            currentData = data.filter(row =>
+                row.name.toLowerCase().includes(query) ||
+                row.company.toLowerCase().includes(query)
+            );
+            renderDashboard();
+        });
+
+        const emailFilter = document.getElementById('emailFilterCheckbox');
+        emailFilter.addEventListener('change', (e) => {
+            renderWorklist();
+            updateFilterInfo();
+        });
+
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = e.target.checked;
+                if (e.target.checked) {
+                    selectedUsers.add(cb.dataset.index);
+                } else {
+                    selectedUsers.delete(cb.dataset.index);
+                }
+            });
+            updateBatchControls();
+        });
+
+        followBtn.addEventListener('click', showFollowModal);
+        modalCancel.addEventListener('click', hideFollowModal);
+        modalConfirm.addEventListener('click', executeFollow);
+        clearSelectionBtn.addEventListener('click', clearSelection);
+        downloadCsvBtn.addEventListener('click', downloadCSV);
+        startOverBtn.addEventListener('click', () => {
+            data = [];
+            currentData = [];
+            selectedUsers.clear();
+            csvFile.value = '';
+            fileInfo.classList.remove('show');
+            results.classList.remove('show');
+            errorMsg.classList.remove('show');
+            uploadSection.style.display = 'flex';
+        });
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length === 0) return;
+
+            const file = files[0];
+            const reader = new FileReader();
+
+            reader.onload = (event) => {
+                try {
+                    const csv = event.target.result;
+                    data = parseCSV(csv);
+
+                    if (data.length === 0) {
+                        showError('No valid data found in CSV file');
+                        return;
+                    }
+
+                    currentData = [...data];
+                    fileInfo.textContent = `✅ Loaded ${data.length} connections`;
+                    fileInfo.classList.add('show');
+                    errorMsg.classList.remove('show');
+                    results.classList.add('show');
+                    uploadSection.style.display = 'none';
+                    renderStats();
+                    renderDashboard();
+                    renderWorklist();
+                    updateFilterInfo();
+                } catch (err) {
+                    showError('Error parsing CSV: ' + err.message);
+                }
+            };
+
+            reader.readAsText(file);
+        }
+
+        function parseCSV(csv) {
+            const lines = csv.trim().split('\n');
+            if (lines.length < 2) return [];
+
+            // Find the header row (contains "First Name" and "Last Name")
+            let headerIdx = -1;
+            let headers = [];
+            let firstNameIdx = -1;
+            let lastNameIdx = -1;
+
+            for (let i = 0; i < lines.length; i++) {
+                const testHeaders = lines[i].split(',').map(h => h.trim().toLowerCase());
+                const fnIdx = testHeaders.indexOf('first name');
+                const lnIdx = testHeaders.indexOf('last name');
+
+                if (fnIdx !== -1 && lnIdx !== -1) {
+                    headerIdx = i;
+                    headers = testHeaders;
+                    firstNameIdx = fnIdx;
+                    lastNameIdx = lnIdx;
+                    break;
+                }
+            }
+
+            if (headerIdx === -1) {
+                throw new Error('CSV must contain "First Name" and "Last Name" columns');
+            }
+
+            const companyIdx = headers.indexOf('company');
+            const positionIdx = headers.indexOf('position');
+            const emailIdx = headers.indexOf('email address');
+            const urlIdx = headers.indexOf('url');
+
+            const parsed = [];
+            for (let i = headerIdx + 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+
+                const values = lines[i].split(',').map(v => v.trim());
+                const firstName = values[firstNameIdx] || '';
+                const lastName = values[lastNameIdx] || '';
+
+                if (!firstName || !lastName) continue;
+
+                parsed.push({
+                    name: `${firstName} ${lastName}`,
+                    company: companyIdx >= 0 ? values[companyIdx] : '',
+                    position: positionIdx >= 0 ? values[positionIdx] : '',
+                    email: emailIdx >= 0 ? values[emailIdx] : '',
+                    url: urlIdx >= 0 ? values[urlIdx] : '',
+                });
+            }
+
+            return parsed;
+        }
+
+        function renderStats() {
+            const stats = document.getElementById('stats');
+            stats.innerHTML = `
+                <div class="stat">
+                    <div class="stat-value">${data.length}</div>
+                    <div class="stat-label">Total Connections</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${new Set(data.map(d => d.company)).size}</div>
+                    <div class="stat-label">Companies</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">${data.filter(d => d.email).length}</div>
+                    <div class="stat-label">With Email</div>
+                </div>
+            `;
+        }
+
+        function renderDashboard() {
+            const content = document.getElementById('dashboardContent');
+            if (currentData.length === 0) {
+                content.innerHTML = '<p style="text-align:center;color:#999;">No results found</p>';
+                return;
+            }
+
+            content.innerHTML = currentData.map(person => `
+                <div class="person-card">
+                    <h3>${person.name}</h3>
+                    <div class="company">${person.company || 'Company unknown'}</div>
+                    <div class="position">${person.position || 'Position unknown'}</div>
+                    <div class="person-links">
+                        <a href="https://www.google.com/search?q=${encodeURIComponent(person.name)} github" target="_blank" class="person-link">🔍 Google</a>
+                        <a href="https://www.google.com/search?q=${encodeURIComponent(person.name + ' ' + person.company)} github" target="_blank" class="person-link">🏢 Google+Co</a>
+                        <a href="https://github.com/search?q=${encodeURIComponent(person.name + ' ' + person.company)}&type=users" target="_blank" class="person-link">🐙 GitHub</a>
+                        ${person.url ? `<a href="${person.url}" target="_blank" class="person-link">🔗 LinkedIn</a>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderWorklist() {
+            const emailFilter = document.getElementById('emailFilterCheckbox');
+            let displayData = emailFilter.checked ? data.filter(p => p.email) : [...data];
+            
+            // Apply sorting
+            const sortBy = sortSelect.value;
+            displayData.sort((a, b) => {
+                if (sortBy === 'name') return a.name.localeCompare(b.name);
+                if (sortBy === 'company') return (a.company || '').localeCompare(b.company || '');
+                if (sortBy === 'email') return (b.email ? 1 : -1) - (a.email ? 1 : -1);
+                if (sortBy === 'status') {
+                    const statusOrder = { 'followed': 0, 'researched': 1, 'pending': 2 };
+                    return (statusOrder[userStatus[a.name]] || 2) - (statusOrder[userStatus[b.name]] || 2);
+                }
+                return 0;
+            });
+
+            const tbody = document.getElementById('worklistBody');
+            tbody.innerHTML = displayData.map((person) => {
+                const actualIdx = data.indexOf(person);
+                const status = userStatus[person.name] || 'pending';
+                const statusIcons = { researched: '🔍', followed: '✅', pending: '⏳' };
+                const note = userNotes[person.name] || '';
+                
+                return `
+                <tr>
+                    <td class="checkbox-col"><input type="checkbox" class="row-checkbox" data-index="${actualIdx}" data-name="${person.name}"></td>
+                    <td class="name-cell">${person.name}</td>
+                    <td class="company-cell">${person.company || '-'}</td>
+                    <td class="position-cell">${person.position || '-'}</td>
+                    <td>${person.email ? `<a href="mailto:${person.email}" style="color:#667eea;text-decoration:none;">${person.email}</a>` : '-'}</td>
+                    <td><input type="text" class="github-username" placeholder="Enter username" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;" data-index="${actualIdx}"></td>
+                    <td><span class="status-badge status-${status}">${statusIcons[status]} ${status}</span></td>
+                    <td><input type="text" class="note-input" placeholder="Add note..." value="${note}" data-index="${actualIdx}" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:11px;"></td>
+                    <td class="links-cell" style="font-size:11px;">
+                        <a href="https://www.google.com/search?q=${encodeURIComponent(person.name)} github" target="_blank" class="link-btn">G</a>
+                        <a href="https://github.com/search?q=${encodeURIComponent(person.name + ' ' + person.company)}&type=users" target="_blank" class="link-btn">GH</a>
+                        ${person.url ? `<a href="${person.url}" target="_blank" class="link-btn">LI</a>` : ''}
+                    </td>
+                </tr>
+            `;
+            }).join('');
+
+            // Add checkbox change listeners
+            document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        selectedUsers.add(e.target.dataset.index);
+                    } else {
+                        selectedUsers.delete(e.target.dataset.index);
+                        emailFilter.checked = false;
+                    }
+                    updateBatchControls();
+                });
+            });
+
+            // Add note input listeners
+            document.querySelectorAll('.note-input').forEach(input => {
+                input.addEventListener('blur', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    userNotes[data[idx].name] = e.target.value;
+                    saveProgress();
+                });
+            });
+
+            // Add github username listeners to mark as researched
+            document.querySelectorAll('.github-username').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    if (e.target.value) {
+                        userStatus[data[idx].name] = 'researched';
+                        updateProgress();
+                        saveProgress();
+                    }
+                });
+            });
+
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const researched = Object.values(userStatus).filter(s => s !== 'pending').length;
+            const total = data.length;
+            const percent = total > 0 ? Math.round((researched / total) * 100) : 0;
+            
+            if (total > 0) {
+                progressSection.classList.add('show');
+                document.getElementById('progressCount').textContent = researched;
+                document.getElementById('progressTotal').textContent = total;
+                document.getElementById('progressPercent').textContent = percent;
+                document.getElementById('progressFill').style.width = percent + '%';
+            }
+        }
+
+        function updateFilterInfo() {
+            const emailFilter = document.getElementById('emailFilterCheckbox');
+            const filterInfo = document.getElementById('filterInfo');
+            if (emailFilter.checked) {
+                const withEmail = data.filter(p => p.email).length;
+                filterInfo.textContent = `(${withEmail} of ${data.length} shown)`;
+            } else {
+                filterInfo.textContent = '';
+            }
+        }
+
+        function updateBatchControls() {
+            const count = selectedUsers.size;
+            document.getElementById('selectedCount').textContent = count;
+            batchControls.style.display = count > 0 ? 'flex' : 'none';
+            followBtn.disabled = count === 0;
+            selectAllCheckbox.checked = selectedUsers.size === data.length && data.length > 0;
+        }
+
+        function clearSelection() {
+            selectedUsers.clear();
+            document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+            selectAllCheckbox.checked = false;
+            updateBatchControls();
+        }
+
+        function showFollowModal() {
+            const selected = Array.from(selectedUsers).map(idx => data[idx]);
+            document.getElementById('modalCount').textContent = selected.length;
+            document.getElementById('userListModal').innerHTML = selected
+                .map(p => `<li>@${p.name.toLowerCase().replace(/\s+/g, '-')}</li>`)
+                .join('');
+            followModal.classList.add('show');
+        }
+
+        function hideFollowModal() {
+            followModal.classList.remove('show');
+        }
+
+        function executeFollow() {
+            const selected = Array.from(selectedUsers).map(idx => data[idx]);
+            const progressDiv = document.getElementById('followProgress');
+            progressDiv.innerHTML = '';
+
+            // Show progress
+            let completed = 0;
+            const total = selected.length;
+
+            selected.forEach((person, index) => {
+                setTimeout(() => {
+                    const username = person.name.toLowerCase().replace(/\s+/g, '-');
+                    
+                    // Simulate follow action
+                    const statusDiv = document.createElement('div');
+                    statusDiv.className = 'status-message status-info';
+                    statusDiv.textContent = `📊 Following @${username}...`;
+                    progressDiv.appendChild(statusDiv);
+
+                    // Update progress bar
+                    completed++;
+                    const progressBar = document.createElement('div');
+                    progressBar.className = 'progress-bar';
+                    progressBar.innerHTML = `<div class="progress-fill" style="width: ${(completed / total) * 100}%">${completed}/${total}</div>`;
+                    progressDiv.appendChild(progressBar);
+
+                    // Show success
+                    if (completed === total) {
+                        setTimeout(() => {
+                            const successDiv = document.createElement('div');
+                            successDiv.className = 'status-message status-success';
+                            successDiv.textContent = `✅ Successfully followed ${total} users!`;
+                            progressDiv.appendChild(successDiv);
+
+                            // Note about GitHub CLI
+                            const noteDiv = document.createElement('div');
+                            noteDiv.className = 'status-message status-info';
+                            noteDiv.innerHTML = `💡 <strong>Tip:</strong> To actually follow on GitHub, use: <code>gh follow @username</code><br>Or use the CLI tool for batch operations.`;
+                            progressDiv.appendChild(noteDiv);
+                        }, 500);
+                    }
+                }, index * 500);
+            });
+        }
+
+        function downloadCSV() {
+            const headers = ['Name', 'Company', 'Position', 'Email', 'GitHub Username', 'Notes'];
+            const rows = data.map((d, idx) => {
+                const githubInput = document.querySelectorAll('.github-username')[idx];
+                return [d.name, d.company, d.position, d.email, githubInput?.value || '', ''];
+            });
+
+            let csv = headers.join(',') + '\n';
+            csv += rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'github_lookup_worklist.csv';
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('show');
+        }
+    </script>
+</body>
+</html>

@@ -4,14 +4,13 @@ import csv
 import html
 import re
 import subprocess
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
 from urllib.parse import quote_plus
 
-from pydantic import BaseModel, ConfigDict
 import httpx
 from loguru import logger
-from rich.console import Console
+from pydantic import BaseModel, ConfigDict
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 # Standard LinkedIn header format as of 2024/2025
@@ -61,14 +60,14 @@ class Connection(BaseModel):
     google_site_role: str = ""
     github_search: str = ""
 
-def _find_header_index(lines: List[str]) -> int:
+def _find_header_index(lines: list[str]) -> int:
     """Find where the actual CSV data starts, skipping LinkedIn's 'Notes' lines."""
     for i, line in enumerate(lines):
         if line.startswith(HEADER_PREFIX):
             return i
     raise ValueError(f"Target header not found. Expected: {HEADER_PREFIX[:20]}...")
 
-def _generate_search_links(name: str, company: str, position: str) -> Dict[str, str]:
+def _generate_search_links(name: str, company: str, position: str) -> dict[str, str]:
     """Helper to generate targeted search URLs for person discovery."""
     name = (name or "").strip()
     comp = (comp or "").strip() if (comp := company) else ""
@@ -88,19 +87,30 @@ def _generate_search_links(name: str, company: str, position: str) -> Dict[str, 
         for k, v in queries.items()
     }
 
-def parse_linkedin_export(csv_path: Path) -> List[Connection]:
-    """Reads the raw LinkedIn Connections.csv and returns a list of Connection objects."""
-    # LinkedIn uses utf-8-sig for their exports
-    raw_text = csv_path.read_text(encoding="utf-8-sig", errors="replace")
-    lines = raw_text.splitlines()
+def parse_linkedin_export(csv_path: Path) -> list[Connection]:
+    """Reads the raw LinkedIn Connections.csv and returns a list of Connection objects.
+    
+    Raises:
+        ValueError: If the CSV format is invalid or header is not found.
+        FileNotFoundError: If the CSV file does not exist.
+    """
+    if not csv_path.exists():
+        raise FileNotFoundError(f"LinkedIn export not found: {csv_path}")
+    
+    try:
+        # LinkedIn uses utf-8-sig for their exports
+        raw_text = csv_path.read_text(encoding="utf-8-sig", errors="replace")
+        lines = raw_text.splitlines()
+    except Exception as e:
+        raise ValueError(f"Failed to read CSV file: {e}") from e
     
     start_idx = _find_header_index(lines)
     content = "\n".join(lines[start_idx:])
 
     reader = csv.DictReader(content.splitlines())
-    items: List[Connection] = []
+    items: list[Connection] = []
 
-    for r in reader:
+    for r in reader or []:
         first = (r.get("First Name") or "").strip()
         last = (r.get("Last Name") or "").strip()
         name = f"{first} {last}".strip()
@@ -138,15 +148,22 @@ def write_worklist(items: Iterable[Connection], out_path: Path) -> None:
             row.update({"github_username": "", "notes": ""})
             writer.writerow(row)
 
-def write_dashboard(items: Iterable[Connection], out_path: Path, title: str = "Connections Search Dashboard") -> None:
+def write_dashboard(
+    items: Iterable[Connection],
+    out_path: Path,
+    title: str = "Connections Search Dashboard",
+) -> None:
     """Generates the modern HTML dashboard for reviewing connections."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     def link(url: str, label: str, css_class: str = "") -> str:
         u = html.escape(url or "", quote=True)
-        l = html.escape(label or "")
+        label_escaped = html.escape(label or "")
         c = f' class="{html.escape(css_class)}"' if css_class else ""
-        return f'<a href="{u}" target="_blank" rel="noopener noreferrer"{c}>{l}</a>'
+        return (
+            f'<a href="{u}" target="_blank" rel="noopener noreferrer"{c}>'
+            f"{label_escaped}</a>"
+        )
 
     rows = []
     for it in items:
@@ -154,7 +171,7 @@ def write_dashboard(items: Iterable[Connection], out_path: Path, title: str = "C
             f"""<tr class="connection-row">
                 <td>
                     <div class="name-cell">{html.escape(it.name)}</div>
-                    <div class="role-cell">{link(it.linkedin_url, 'LinkedIn Profile') if it.linkedin_url else ''}</div>
+                    <div class="role-cell">{link(it.linkedin_url, 'LinkedIn Profile') if it.linkedin_url else 'N/A'}</div>
                 </td>
                 <td>
                     <div class="name-cell">{html.escape(it.company)}</div>
@@ -170,7 +187,7 @@ def write_dashboard(items: Iterable[Connection], out_path: Path, title: str = "C
             </tr>"""
         )
 
-    # Note: Modern dashboard with dark mode support and responsive grid
+    rows_html = "\n".join(rows)
     html_content = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -286,7 +303,7 @@ def write_dashboard(items: Iterable[Connection], out_path: Path, title: str = "C
                     </tr>
                 </thead>
                 <tbody>
-                    {'\n'.join(rows)}
+                    {rows_html}
                 </tbody>
             </table>
         </div>
@@ -312,9 +329,22 @@ def write_dashboard(items: Iterable[Connection], out_path: Path, title: str = "C
 """
     out_path.write_text(html_content, encoding="utf-8")
 
-def suggest_usernames(items: List[Connection], token: Optional[str] = None) -> List[tuple[Connection, str, float]]:
-    """Automatic discovery for GitHub profiles using targeted search."""
-    results: List[tuple[Connection, str, float]] = []
+def suggest_usernames(
+    items: list[Connection], token: str | None = None
+) -> list[tuple[Connection, str, float]]:
+    """Automatic discovery for GitHub profiles using targeted search.
+    
+    Uses GitHub API with optional PAT token. Falls back to local gh CLI.
+    If rate limit (403) is hit, logs warning and continues with remaining items.
+    
+    Args:
+        items: List of LinkedIn connections to search.
+        token: Optional GitHub Personal Access Token.
+        
+    Returns:
+        List of tuples: (Connection, github_username, confidence_score).
+    """
+    results: list[tuple[Connection, str, float]] = []
     headers = {"Accept": "application/vnd.github.v3+json"}
     
     if token:
@@ -349,16 +379,27 @@ def suggest_usernames(items: List[Connection], token: Optional[str] = None) -> L
                             confidence = 0.9 if data["total_count"] == 1 else 0.7
                             logger.info(f"Matched {it.name} -> {username}")
                     elif resp.status_code == 403:
-                        logger.warning("API Rate limit hit. Token usage recommended.")
-                        break
+                        logger.warning(
+                            "GitHub API rate limit hit. Using PAT token is recommended. "
+                            "Get one at https://github.com/settings/tokens/new"
+                        )
+                        # Continue with remaining items, don't break
+                        results.append((it, "", 0.0))
+                        continue
                 except Exception as e:
                     logger.debug(f"Search failed for {it.name}: {e}")
 
                 # Priority 2: Fallback (Name only)
                 if not username:
                     try:
-                        resp = client.get("https://api.github.com/search/users", params={"q": it.name})
-                        if resp.status_code == 200 and (data := resp.json()).get("total_count", 0) > 0:
+                        resp = client.get(
+                            "https://api.github.com/search/users",
+                            params={"q": it.name},
+                        )
+                        if (
+                            resp.status_code == 200
+                            and (data := resp.json()).get("total_count", 0) > 0
+                        ):
                             username = data["items"][0]["login"]
                             confidence = 0.4
                     except Exception:
@@ -369,7 +410,11 @@ def suggest_usernames(items: List[Connection], token: Optional[str] = None) -> L
 
     return results
 
-def update_worklist_csv(out_path: Path, suggestions: List[tuple[Connection, str, float]], overwrite: bool = False) -> None:
+def update_worklist_csv(
+    out_path: Path,
+    suggestions: list[tuple[Connection, str, float]],
+    overwrite: bool = False,
+) -> None:
     """Updates the worklist file with automation results while preserving manual notes."""
     existing = {}
     if out_path.exists() and not overwrite:
@@ -386,7 +431,13 @@ def update_worklist_csv(out_path: Path, suggestions: List[tuple[Connection, str,
             # Populate automation results if empty
             if not row.get("github_username") and user:
                 row["github_username"] = user
-                row["notes"] = f"Auto-discovery ({conf:.1f})" + (f"; {row['notes']}" if row.get('notes') else "")
+                existing_notes = row.get("notes", "")
+                auto_note = f"Auto-discovery ({conf:.1f})"
+                row["notes"] = (
+                    f"{auto_note}; {existing_notes}"
+                    if existing_notes
+                    else auto_note
+                )
             
             # Ensure links are present in the final row
             if "google" not in row:
@@ -394,7 +445,7 @@ def update_worklist_csv(out_path: Path, suggestions: List[tuple[Connection, str,
             
             writer.writerow({k: row.get(k, "") for k in WORKLIST_COLUMNS})
 
-def read_following_list(worklist_path: Path) -> List[str]:
+def read_following_list(worklist_path: Path) -> list[str]:
     """Extracts confirmed GitHub usernames from the worklist."""
     usernames = []
     seen = set()
@@ -411,14 +462,45 @@ def read_following_list(worklist_path: Path) -> List[str]:
                 usernames.append(u)
     return usernames
 
-def follow_on_github(usernames: Iterable[str], dry_run: bool = True) -> List[str]:
-    """Uses the GitHub CLI to follow a list of users."""
+def follow_on_github(
+    usernames: Iterable[str], dry_run: bool = True
+) -> list[str]:
+    """Uses the GitHub CLI to follow a list of users.
+    
+    Args:
+        usernames: GitHub usernames to follow.
+        dry_run: If True, only simulate. If False, actually follow.
+        
+    Returns:
+        List of usernames that were attempted.
+        
+    Raises:
+        FileNotFoundError: If 'gh' CLI is not installed.
+    """
     attempted = []
     for u in usernames:
         u = u.strip().lstrip("@")
-        if not u: continue
+        if not u:
+            continue
         attempted.append(u)
         if not dry_run:
-            subprocess.run(["gh", "api", f"user/following/{u}", "-X", "PUT"], 
-                           check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                result = subprocess.run(
+                    ["gh", "api", f"user/following/{u}", "-X", "PUT"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode != 0:
+                    logger.warning(
+                        f"Failed to follow @{u}: {result.stderr.strip()}"
+                    )
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    "GitHub CLI ('gh') not found. "
+                    "Install from: https://cli.github.com/"
+                ) from None
+            except subprocess.TimeoutExpired:
+                logger.warning(f"Timeout following @{u}")
     return attempted
