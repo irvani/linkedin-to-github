@@ -1,92 +1,59 @@
 # linkedin-to-github
 
-Turn a LinkedIn **Connections.csv** export into:
+A utility to bridge the gap between your LinkedIn professional network and your GitHub community. 
 
-- `github_lookup_worklist.csv` — a worklist you can review + enrich (e.g., add GitHub usernames)
-- `github_lookup_links.html` — clickable lookup links (Google + GitHub user search) per connection
-- `users.txt` — unique GitHub usernames (from the worklist) for optional `gh` follow
+I built this to automate the tedious process of finding and following professional connections on GitHub. It parses a LinkedIn connections export, generates targeted lookup links, and can optionally use the GitHub Search API to suggest matches based on name and company.
 
-This is designed to be **human-in-the-loop** (ToS-friendly): the tool generates lookup links and a worklist; you decide what to do next.
+## Features
 
----
+- **Pydantic-powered parsing**: Robust handling of LinkedIn's CSV export format.
+- **Automated Discovery**: Heuristic-based search using the GitHub API (via `httpx`).
+- **Interactive Dashboard**: A modern, dark-mode-ready HTML interface for manual review and enrichment.
+- **CLI Sync**: Direct integration with the GitHub CLI (`gh`) for mass-following.
 
-## Install
+## Tech Stack
 
-### Option A: pipx (recommended for CLI tools)
+Selected for performance and developer experience:
+- [Typer](https://typer.tiangolo.com/) (CLI)
+- [Pydantic V2](https://docs.pydantic.dev/) (Data Modeling)
+- [HTTPX](https://www.python-httpx.org/) (Networking)
+- [Rich](https://github.com/Textualize/rich) (Terminal UI)
+
+## Installation
+
 ```bash
-pipx install .
+git clone https://github.com/irvani/linkedin-to-github.git
+cd linkedin-to-github
+make dev
 ```
 
-### Option B: editable install (dev)
+## Workflow
+
+### 1. Initialize Project
+Export your connections from LinkedIn and run:
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+ltg init --connections Connections.csv
 ```
+This creates `github_lookup_worklist.csv` and an interactive `github_lookup_links.html`.
 
----
-
-## Usage
-
-### 1) Export your LinkedIn connections
-LinkedIn → Settings & Privacy → Data privacy → Get a copy of your data → Connections.
-
-You should end up with a file like:
-- `Connections.csv` (sometimes it includes `Notes:` lines above the real CSV header — handled automatically)
-
-### 2) Generate worklist + HTML links
+### 2. Automated Search (Optional)
+To speed things up, let the tool try to find users for you:
 ```bash
-ltg make --connections /path/to/Connections.csv --outdir .
+ltg search --connections Connections.csv
 ```
 
-Outputs:
-- `./github_lookup_worklist.csv`
-- `./github_lookup_links.html`
-
-### 3) Fill in GitHub usernames (optional)
-Open `github_lookup_worklist.csv` and populate the `github_username` column for anyone you found.
-
-### 4) Generate users.txt
+### 3. Review & Sync
+Open the dashboard, verify the GitHub usernames in the CSV, and then:
 ```bash
-ltg users --worklist ./github_lookup_worklist.csv --out ./users.txt
+ltg sync --worklist github_lookup_worklist.csv --yes
 ```
-
-### 5) (Optional) Follow users via GitHub CLI
-Requires `gh` installed and authenticated (`gh auth login`).
-
-Dry-run:
-```bash
-ltg follow --users ./users.txt --dry-run
-```
-
-Actually follow:
-```bash
-ltg follow --users ./users.txt --yes
-```
-
----
-
-## CSV format notes
-
-The parser looks for a header line that starts with:
-
-```
-First Name,Last Name,URL,Email Address,Company,Position,Connected On
-```
-
-If LinkedIn adds extra “Notes:” lines above the header, those are ignored.
-
----
 
 ## Development
 
-Run lint + tests:
-```bash
-ruff check .
-pytest
-```
+Check the [Makefile](./Makefile) for common tasks:
+- `make test`: Run pytest suite.
+- `make lint`: Run ruff checks.
+- `make clean`: Cleanup build artifacts.
 
 ---
-
-## License
-MIT — see [LICENSE](LICENSE).
+License: MIT
