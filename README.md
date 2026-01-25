@@ -1,5 +1,10 @@
 # linkedin-to-github
 
+![Python Version](https://img.shields.edu/badge/python-3.10%2B-blue?style=flat-square&logo=python)
+![License](https://img.shields.edu/github/license/irvani/linkedin-to-github?style=flat-square)
+![Stars](https://img.shields.edu/github/stars/irvani/linkedin-to-github?style=flat-square)
+![Issues](https://img.shields.edu/github/issues/irvani/linkedin-to-github?style=flat-square)
+
 A utility to bridge the gap between your LinkedIn professional network and your GitHub community. 
 
 I built this to automate the tedious process of finding and following professional connections on GitHub. It parses a LinkedIn connections export, generates targeted lookup links, and can optionally use the GitHub Search API to suggest matches based on name and company.
